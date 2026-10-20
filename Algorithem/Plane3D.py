@@ -1,4 +1,4 @@
-"""A mathematical plane in 3D space: a*x + b*y + c*z + d = 0 (no external dependencies)."""
+"""A plane in 3D space defined by an explicit normal vector and a point on the plane."""
 
 from __future__ import annotations
 
@@ -40,111 +40,112 @@ def _length(a: Vec3) -> float:
 
 class Plane:
     """
-    An infinite plane defined by the equation  a*x + b*y + c*z + d = 0.
+    A plane defined by a specific normal vector and a point it passes through.
 
-    The normal (a, b, c) is always stored as a unit vector, so
-    `signed_distance` returns true geometric distances.
+    The normal is stored exactly as you give it (it is NOT rescaled).
+    Use `unit_normal` when you need a normalized version.
+    Plane equation:  nx*x + ny*y + nz*z + d = 0,  where d = -(normal . point).
     """
 
-    def __init__(self, a: float, b: float, c: float, d: float):
-        length = _length((a, b, c))
-        if length < EPS:
-            raise ValueError("The normal vector (a, b, c) cannot be zero")
-        self.normal: Vec3 = (a / length, b / length, c / length)
-        self.d: float = d / length
+    def __init__(self, normal: Vec3, point: Vec3 = (0.0, 0.0, 0.0)):
+        normal = tuple(float(v) for v in normal)
+        if len(normal) != 3:
+            raise ValueError("normal must have exactly 3 components")
+        if _length(normal) < EPS:
+            raise ValueError("The normal vector cannot be the zero vector")
+        self.normal: Vec3 = normal
+        self.point: Vec3 = tuple(float(v) for v in point)
+        self.d: float = -_dot(self.normal, self.point)
 
     # ---------- alternative constructors ----------
     @classmethod
-    def from_point_normal(cls, point: Vec3, normal: Vec3) -> "Plane":
-        """Plane passing through `point` and perpendicular to `normal`."""
-        a, b, c = normal
-        return cls(a, b, c, -_dot(normal, point))
-
-    @classmethod
     def from_points(cls, p1: Vec3, p2: Vec3, p3: Vec3) -> "Plane":
-        """Plane passing through three non-collinear points."""
+        """Plane through three points. Normal = (p2 - p1) x (p3 - p1)."""
         normal = _cross(_sub(p2, p1), _sub(p3, p1))
         if _length(normal) < EPS:
             raise ValueError("The three points are collinear; they do not define a plane")
-        return cls.from_point_normal(p1, normal)
+        return cls(normal, p1)
+
+    @classmethod
+    def from_coefficients(cls, a: float, b: float, c: float, d: float) -> "Plane":
+        """Plane from the equation a*x + b*y + c*z + d = 0 (normal = (a, b, c))."""
+        n = (a, b, c)
+        n2 = _dot(n, n)
+        if n2 < EPS:
+            raise ValueError("(a, b, c) cannot be zero")
+        return cls(n, _mul(n, -d / n2))
+
+    # ---------- normal ----------
+    @property
+    def unit_normal(self) -> Vec3:
+        return _mul(self.normal, 1 / _length(self.normal))
+
+    def flip(self) -> "Plane":
+        """Return the same plane with the normal pointing the opposite way."""
+        return Plane(_mul(self.normal, -1), self.point)
 
     # ---------- queries ----------
     @property
     def coefficients(self) -> tuple[float, float, float, float]:
         return (*self.normal, self.d)
 
-    def signed_distance(self, point: Vec3) -> float:
+    def signed_distance(self, p: Vec3) -> float:
         """Positive on the side the normal points to, negative on the other side."""
-        return _dot(self.normal, point) + self.d
+        return (_dot(self.normal, p) + self.d) / _length(self.normal)
 
-    def distance(self, point: Vec3) -> float:
-        return abs(self.signed_distance(point))
+    def distance(self, p: Vec3) -> float:
+        return abs(self.signed_distance(p))
 
-    def contains(self, point: Vec3, tol: float = 1e-9) -> bool:
-        return self.distance(point) <= tol
+    def contains(self, p: Vec3, tol: float = 1e-9) -> bool:
+        return self.distance(p) <= tol
 
-    def side(self, point: Vec3, tol: float = 1e-9) -> int:
-        """+1 in front of the plane, -1 behind it, 0 on the plane."""
-        s = self.signed_distance(point)
+    def side(self, p: Vec3, tol: float = 1e-9) -> int:
+        """+1 in front of the plane (normal side), -1 behind it, 0 on the plane."""
+        s = self.signed_distance(p)
         return 0 if abs(s) <= tol else (1 if s > 0 else -1)
 
-    def point_on_plane(self) -> Vec3:
-        """Some point on the plane (the one closest to the origin)."""
-        return _mul(self.normal, -self.d)
-
     # ---------- point operations ----------
-    def project_point(self, point: Vec3) -> Vec3:
-        """Closest point on the plane to `point`."""
-        return _sub(point, _mul(self.normal, self.signed_distance(point)))
+    def project_point(self, p: Vec3) -> Vec3:
+        """Closest point on the plane to `p`."""
+        return _sub(p, _mul(self.unit_normal, self.signed_distance(p)))
 
-    def reflect_point(self, point: Vec3) -> Vec3:
-        """Mirror image of `point` across the plane."""
-        return _sub(point, _mul(self.normal, 2 * self.signed_distance(point)))
+    def reflect_point(self, p: Vec3) -> Vec3:
+        """Mirror image of `p` across the plane."""
+        return _sub(p, _mul(self.unit_normal, 2 * self.signed_distance(p)))
 
     # ---------- relations with other objects ----------
     def intersect_line(self, origin: Vec3, direction: Vec3) -> Vec3 | None:
-        """
-        Intersection of the plane with the line origin + t * direction.
-        Returns None if the line is parallel to the plane (no single intersection point).
-        """
+        """Intersection with the line origin + t*direction, or None if parallel."""
         denom = _dot(self.normal, direction)
         if abs(denom) < EPS:
             return None
-        t = -self.signed_distance(origin) / denom
+        t = -(_dot(self.normal, origin) + self.d) / denom
         return _add(origin, _mul(direction, t))
 
     def intersect_plane(self, other: "Plane") -> tuple[Vec3, Vec3] | None:
-        """
-        Intersection line with another plane, as (point, direction).
-        Returns None if the planes are parallel (or identical).
-        """
-        direction = _cross(self.normal, other.normal)
-        denom = _dot(direction, direction)
-        if denom < EPS:
+        """Intersection line with another plane as (point, unit direction), or None if parallel."""
+        u = _cross(self.normal, other.normal)
+        u2 = _dot(u, u)
+        if u2 < EPS:
             return None
         h1, h2 = -self.d, -other.d  # n . p = h
         point = _mul(
-            _add(
-                _mul(_cross(other.normal, direction), h1),
-                _mul(_cross(direction, self.normal), h2),
-            ),
-            1 / denom,
+            _add(_mul(_cross(other.normal, u), h1), _mul(_cross(u, self.normal), h2)),
+            1 / u2,
         )
-        return point, _mul(direction, 1 / math.sqrt(denom))
+        return point, _mul(u, 1 / math.sqrt(u2))
 
     def angle_with(self, other: "Plane") -> float:
         """Angle between the planes in degrees, in [0, 90]."""
-        cos_a = abs(_dot(self.normal, other.normal))
+        cos_a = abs(_dot(self.unit_normal, other.unit_normal))
         return math.degrees(math.acos(min(1.0, cos_a)))
 
     def is_parallel(self, other: "Plane", tol: float = 1e-9) -> bool:
-        return _length(_cross(self.normal, other.normal)) <= tol
+        return _length(_cross(self.unit_normal, other.unit_normal)) <= tol
 
     def is_perpendicular(self, other: "Plane", tol: float = 1e-9) -> bool:
-        return abs(_dot(self.normal, other.normal)) <= tol
+        return abs(_dot(self.unit_normal, other.unit_normal)) <= tol
 
-    # ---------- dunder ----------
     def __repr__(self) -> str:
-        a, b, c = self.normal
-        return f"Plane({a:.4g}x + {b:.4g}y + {c:.4g}z + {self.d:.4g} = 0)"
+        return f"Plane(normal={self.normal}, point={self.point})"
 
