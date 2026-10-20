@@ -84,6 +84,61 @@ class Plane:
         """Return the same plane with the normal pointing the opposite way."""
         return Plane(_mul(self.normal, -1), self.point)
 
+    # ---------- moving the plane ----------
+    def move(self, dx: float = 0.0, dy: float = 0.0, dz: float = 0.0) -> "Plane":
+        """Move the plane by (dx, dy, dz). The normal stays the same. Returns self."""
+        self.point = _add(self.point, (float(dx), float(dy), float(dz)))
+        self.d = -_dot(self.normal, self.point)
+        return self
+
+    def move_along_normal(self, distance: float) -> "Plane":
+        """Move the plane `distance` units along its normal (negative = opposite way). Returns self."""
+        return self.move(*_mul(self.unit_normal, distance))
+
+    def move_to(self, point: Vec3) -> "Plane":
+        """Place the plane so it passes through `point`. The normal stays the same. Returns self."""
+        self.point = tuple(float(v) for v in point)
+        self.d = -_dot(self.normal, self.point)
+        return self
+
+    # ---------- rotating the plane ----------
+    @staticmethod
+    def _rotate_vector(v: Vec3, axis: Vec3, angle_deg: float) -> Vec3:
+        """Rotate vector `v` around `axis` by `angle_deg` (Rodrigues' formula)."""
+        k = _mul(axis, 1 / _length(axis))
+        a = math.radians(angle_deg)
+        cos_a, sin_a = math.cos(a), math.sin(a)
+        return _add(
+            _add(_mul(v, cos_a), _mul(_cross(k, v), sin_a)),
+            _mul(k, _dot(k, v) * (1 - cos_a)),
+        )
+
+    def rotate(self, axis: Vec3, angle_deg: float, center: Vec3 | None = None) -> "Plane":
+        """
+        Rotate the plane by `angle_deg` degrees around `axis` (right-hand rule).
+
+        The normal vector is rotated (keeping its length), and so is the plane's
+        reference point around `center`. If `center` is None the plane pivots
+        around its own point. Returns self.
+        """
+        if _length(axis) < EPS:
+            raise ValueError("The rotation axis cannot be the zero vector")
+        center = self.point if center is None else tuple(float(v) for v in center)
+        self.normal = self._rotate_vector(self.normal, axis, angle_deg)
+        self.point = _add(center, self._rotate_vector(_sub(self.point, center), axis, angle_deg))
+        self.d = -_dot(self.normal, self.point)
+        return self
+
+    def rotate_around_normal(self, angle_deg: float, center: Vec3 | None = None) -> "Plane":
+        """
+        Rotate the plane around its own normal vector.
+
+        An infinite plane looks the same after spinning around its normal, so with
+        the default center nothing changes. With a `center` that is off the plane's
+        axis, the reference point orbits that center (the plane itself stays the same).
+        """
+        return self.rotate(self.normal, angle_deg, center)
+
     # ---------- queries ----------
     @property
     def coefficients(self) -> tuple[float, float, float, float]:
@@ -148,4 +203,5 @@ class Plane:
 
     def __repr__(self) -> str:
         return f"Plane(normal={self.normal}, point={self.point})"
+
 
