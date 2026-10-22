@@ -225,5 +225,3 @@ Optional flags:
 - `projection/`: source code. `tests/`: tests. `data/`: sample inputs. `results/`: output videos.
 - Commit often with small, descriptive messages (e.g. `Add Plane validation`, `Vectorize projector`, `Add rotation demo`).
 
-## 10. Notes
-- The assignment text refers to the demo as `Ex0.py`; this project names it `Ex1.py`. Rename if your submission requires the other name.
