@@ -26,6 +26,8 @@ Given a 3D matrix `M` of size `sx * sy * sz` (unsigned 8/16/32-bit values, `1 <=
 
 ## 2. Software Requirements Specification (SRS)
 
+> The full document is in [SRS.md](SRS.md). A summary follows.
+
 ### 2.1 Functional requirements
 
 | ID | Requirement |
@@ -80,24 +82,38 @@ Lines starting with `#` and blank lines are ignored.
 ### 3.1 Architecture
 
 ```
-Ex1.py                  # demo main (CLI); loads the NRRD with pynrrd -> NumPy array
+Ex1.py                  # demo main (CLI): NRRD + CSV -> MP4
+video.py                # Frame, Video: frames with durations, export to mp4
 projection/
-  io_csv.py             # CSV reader   -> list[Plane]
-  geometry.py           # Vec3 helpers, Plane (validation, basis vectors, sizes)
-  projector.py          # Projector (interface) + PlaneProjector (algorithm)
-  sampler.py            # Sampler (interface): NearestSampler, TrilinearSampler
-  video.py              # VideoWriter: frames -> mp4, intensity windowing
-tests/                  # unit, property and performance tests
+  io_csv.py             # PlaneCsvReader: CSV text -> raw rows (points) + row errors
+  plane3d.py            # Plane3D: infinite plane + optional validated region (a1,a2,b,c)
+  plane_loader.py       # load_planes(): CSV rows -> valid Plane3D objects (+ errors)
+  projector.py          # (planned) Projector: Plane3D + volume -> 2D image
+  sampler.py            # (planned) Sampler: NearestSampler, TrilinearSampler
+Tests/
+  conftest.py           # makes the project importable from pytest
+  test_plane3d_creation.py   # Plane3D creation / validation, CSV -> planes
+  test_video.py              # Frame / Video / mp4 export
 data/                   # sample NRRD + CSV files
+```
+
+Data flow:
+
+```
+file.csv --> PlaneCsvReader --> PlaneRow(s) --> Plane3D.from_corners --> valid Plane3D list
+file.nrrd --(pynrrd)--> NumPy array M --+
+                                        +--> Projector --> 2D image E --> Video --> file.mp4
 ```
 
 Main classes:
 
-- The volume is a plain NumPy 3D array (`M[x][y][z]`) loaded with the `pynrrd` library, so no custom volume or NRRD reader classes are needed. Shape and dtype come directly from the array.
-- `Plane`: built from 3 or 4 points; validates (FR3) and exposes `start_left`, `start_right`, `dir_left`, `dir_right`, `Dab`, `Dbc`.
-- `Sampler` (Strategy pattern): `sample(M, points) -> values` (`M` is the NumPy array). Allows swapping nearest and trilinear.
-- `Projector`: `project(M, plane) -> ndarray` (the 2D image `E`). Reuses preallocated buffers.
-- `VideoWriter`: Context manager that receives frames and writes the MP4.
+- **Volume**: a plain NumPy 3D array (`M[x][y][z]`) loaded with the `pynrrd` library, so no custom volume or NRRD reader classes are needed. Shape and dtype come directly from the array.
+- **`PlaneCsvReader`** (`io_csv.py`): reads the sample CSV format (header row, first column = number of points, 3 coordinates per point). Only parses text into numbers; it does not check geometry. Bad rows are returned as `RowError` with the line number (or raise `CsvFormatError` in strict mode). The order of the 4 points in the file is one setting (`DEFAULT_FOUR_POINT_FILE_ORDER`), and the reader always returns them in the order `(a1, a2, b, c)`.
+- **`Plane3D`** (`plane3d.py`): one class for both roles. As an infinite plane (normal + point) it offers distances, projection of points, rotation, movement and intersections. Built with `from_triangle`, `from_trapezoid` or `from_corners`, it also keeps the region corners `a1, a2, b, c`, validates them (EPS = 0.001: equal sides, `dist(a1,a2) <= dist(b,c)`, coplanar, not degenerate) and exposes `length` (Dab), `width` (Dbc), `v_left`, `v_right`, `rows` and `cols`. Moving or rotating the plane moves the corners with it. `copy()` gives an independent plane. Invalid input raises `InvalidPlaneError`.
+- **`load_planes`** (`plane_loader.py`): connects the reader and `Plane3D`, so neither depends on the other. Returns the valid planes in file order and the list of errors (skipped rows, or abort in strict mode).
+- **`Frame` / `Video`** (`video.py`): a `Frame` is image data with a display duration; a `Video` is a timeline of frames (`add_frame`, `from_frames`, `timeline`, `frame_at`, `sample`) that is exported with `to_mp4(path, fps)`. Frames are converted to 8-bit RGB with even sizes; all frames must have the same size, and 16/32-bit data must be windowed to 8 bits before it becomes a frame.
+- **`Sampler`** (planned, Strategy pattern): `sample(M, points) -> values`. Allows swapping nearest and trilinear.
+- **`Projector`** (planned): `project(M, plane) -> ndarray` (the 2D image `E`). Reuses preallocated buffers.
 
 ---
 
@@ -138,7 +154,7 @@ Complexity per frame: `O(Dab * Dbc)` time, `O(Dab * Dbc)` memory (reusable buffe
 | File | Description | Source |
 |------|-------------|--------|
 | `data/MRHead.nrrd` | MRI of a head (uint8/int16 depending on version), starting file from the assignment | 3D Slicer sample data |
-| `data/synthetic_cube_64.nrrd` | Generated volume with known values, used for tests (e.g. value = `x + y + z`) | Generated by `tests/make_data.py` |
+| `data/synthetic_cube_64.nrrd` | Generated volume with known values, used for tests (e.g. value = `x + y + z`) | Generated by `Tests/make_data.py` |
 | `data/synthetic_500.nrrd` | 500^3 uint8 random/gradient volume for performance tests | Generated |
 | `data/planes_axes.csv` | Planes parallel to the X, Y, Z sections | Hand made |
 | `data/planes_rotation.csv` | Sequence of planes rotating around an axis (demo) | Generated |
@@ -220,8 +236,5 @@ Optional flags:
 ## 9. Repository Layout and Workflow
 
 - `README.md` (this file): problem, scope, SRS, design, algorithm, tests, results.
-- `projection/`: source code. `tests/`: tests. `data/`: sample inputs. `results/`: output videos.
+- `projection/`, `video.py` and `Ex1.py`: source code. `Tests/`: tests. `data/`: sample inputs. `results/`: output videos.
 - Commit often with small, descriptive messages (e.g. `Add Plane validation`, `Vectorize projector`, `Add rotation demo`).
-
-## 10. Notes
-- The assignment text refers to the demo as `Ex0.py`; this project names it `Ex1.py`. Rename if your submission requires the other name.
