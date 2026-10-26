@@ -4,7 +4,12 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="76d76f5e-b1dc-4080-83fc-70a0a16d08c2" name="Changes" comment="remale Plane3D to work with numpy" />
+    <list default="true" id="76d76f5e-b1dc-4080-83fc-70a0a16d08c2" name="Changes" comment="early version of video class">
+      <change afterPath="$PROJECT_DIR$/Algorithem/sampler.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/I2SE_Exe1.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/I2SE_Exe1.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -31,61 +36,61 @@
 }</component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0" />
-      <entry key="MS500" value="1.0" />
-      <entry key="S2" value="1.0" />
-      <entry key="S5" value="1.0" />
-      <entry key="S10" value="1.0000000000024514" />
-      <entry key="S30" value="1.0001348366210503" />
-      <entry key="S60" value="1.0116119171995972" />
-      <entry key="M2" value="1.1077586061509574" />
-      <entry key="M5" value="1.410185955261929" />
-      <entry key="M10" value="1.64045761394641" />
-      <entry key="M15" value="1.7430081805013458" />
-      <entry key="M30" value="1.8619792228709335" />
-      <entry key="H1" value="1.9284877236013096" />
-      <entry key="H2" value="2.012381326881261" />
-      <entry key="H4" value="3.3928512493141123" />
-      <entry key="D1" value="25.37239112413939" />
-      <entry key="W1" value="39.83679872708121" />
+      <entry key="MS100" value="3.4694469519536115E-18" />
+      <entry key="MS500" value="3.221454860285384E-4" />
+      <entry key="S2" value="0.13397168281920052" />
+      <entry key="S5" value="0.4475341260587838" />
+      <entry key="S10" value="0.6737572178701507" />
+      <entry key="S30" value="1.149007386695489" />
+      <entry key="S60" value="1.9099578038222722" />
+      <entry key="M2" value="2.91057577302726" />
+      <entry key="M5" value="4.33687586079859" />
+      <entry key="M10" value="6.529788783843962" />
+      <entry key="M15" value="8.350628646731153" />
+      <entry key="M30" value="11.489944034975862" />
+      <entry key="H1" value="13.855715229614805" />
+      <entry key="H2" value="15.357883181087901" />
+      <entry key="H4" value="17.44017947699669" />
+      <entry key="D1" value="39.944847459806304" />
+      <entry key="W1" value="54.75045161790297" />
     </decayedCancelled>
     <decayedSelected>
-      <entry key="MS100" value="1.6331007399030152E-61" />
-      <entry key="MS500" value="6.959893516890653E-13" />
-      <entry key="S2" value="9.162903319768261E-4" />
-      <entry key="S5" value="0.06695492506986829" />
-      <entry key="S10" value="0.3248121455053974" />
-      <entry key="S30" value="1.0546685959321767" />
-      <entry key="S60" value="1.4457760717770527" />
-      <entry key="M2" value="1.6985118179113827" />
-      <entry key="M5" value="1.8729488314599636" />
-      <entry key="M10" value="1.9353433540999891" />
-      <entry key="M15" value="1.956639965176956" />
-      <entry key="M30" value="1.9781910984918871" />
-      <entry key="H1" value="1.9890756038268633" />
-      <entry key="H2" value="2.0062131978457574" />
-      <entry key="H4" value="2.3556495956952466" />
-      <entry key="D1" value="8.215671145097406" />
-      <entry key="W1" value="12.138616417382634" />
+      <entry key="MS100" value="1.0" />
+      <entry key="MS500" value="1.0" />
+      <entry key="S2" value="1.000000035437553" />
+      <entry key="S5" value="1.0011415748659076" />
+      <entry key="S10" value="1.046232822146785" />
+      <entry key="S30" value="1.80454267669315" />
+      <entry key="S60" value="2.9996561874721532" />
+      <entry key="M2" value="4.372003033411677" />
+      <entry key="M5" value="5.79054251859292" />
+      <entry key="M10" value="6.6624337535002605" />
+      <entry key="M15" value="7.151428514314081" />
+      <entry key="M30" value="7.871162177813941" />
+      <entry key="H1" value="8.368729662473092" />
+      <entry key="H2" value="8.675247184516065" />
+      <entry key="H4" value="9.160722942499389" />
+      <entry key="D1" value="15.111924589593155" />
+      <entry key="W1" value="19.116953461826533" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="2.0247059223985387E-4" />
-      <entry key="MS500" value="0.1825040013318418" />
-      <entry key="S2" value="0.654014915629541" />
-      <entry key="S5" value="0.8925745133636508" />
-      <entry key="S10" value="1.1993200438762732" />
-      <entry key="S30" value="1.9808299034266321" />
-      <entry key="S60" value="2.41218608399408" />
-      <entry key="M2" value="2.781052727424763" />
-      <entry key="M5" value="3.2723274323756995" />
-      <entry key="M10" value="3.570268009376539" />
-      <entry key="M15" value="3.6959299993745938" />
-      <entry key="M30" value="3.8382962873724558" />
-      <entry key="H1" value="3.9166225147780445" />
-      <entry key="H2" value="4.018116113376472" />
-      <entry key="H4" value="5.748156837346259" />
-      <entry key="D1" value="33.587710535405556" />
-      <entry key="W1" value="51.97533673347151" />
+      <entry key="MS100" value="0.00770494300385437" />
+      <entry key="MS500" value="0.37819158578238393" />
+      <entry key="S2" value="0.9169024287514568" />
+      <entry key="S5" value="1.3541382905370125" />
+      <entry key="S10" value="1.6643910648362554" />
+      <entry key="S30" value="2.8928884070195755" />
+      <entry key="S60" value="4.846852151438771" />
+      <entry key="M2" value="7.23315173720324" />
+      <entry key="M5" value="10.100198948236502" />
+      <entry key="M10" value="13.17607702882828" />
+      <entry key="M15" value="15.490269488700863" />
+      <entry key="M30" value="19.354430674189565" />
+      <entry key="H1" value="22.22083124730526" />
+      <entry key="H2" value="24.031234576769275" />
+      <entry key="H4" value="26.59983428157767" />
+      <entry key="D1" value="55.05629880079104" />
+      <entry key="W1" value="73.86730881497947" />
     </decayedShown>
   </component>
   <component name="ProblemsViewState">
@@ -145,6 +150,8 @@
       <workItem from="1792491728283" duration="3086000" />
       <workItem from="1792934015309" duration="2014000" />
       <workItem from="1792936722567" duration="5742000" />
+      <workItem from="1793010441409" duration="1468000" />
+      <workItem from="1793011922099" duration="2419000" />
     </task>
     <task id="LOCAL-00001" summary="remale Plane3D to work with numpy">
       <option name="closed" value="true" />
@@ -162,7 +169,23 @@
       <option name="project" value="LOCAL" />
       <updated>1793008442970</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="early version of video class">
+      <option name="closed" value="true" />
+      <created>1793010518591</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1793010518591</updated>
+    </task>
+    <task id="LOCAL-00004" summary="early version of video class">
+      <option name="closed" value="true" />
+      <created>1793010542314</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1793010542314</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -194,9 +217,11 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="remake Plane3D to work with numpy" />
     <MESSAGE value="remale Plane3D to work with numpy" />
-    <option name="LAST_COMMIT_MESSAGE" value="remale Plane3D to work with numpy" />
+    <MESSAGE value="early version of video class" />
+    <option name="LAST_COMMIT_MESSAGE" value="early version of video class" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/I2SE_Exe1$video.coverage" NAME="video Coverage Results" MODIFIED="1793017376204" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Algorithem" />
     <SUITE FILE_PATH="coverage/I2SE_Exe1$main.coverage" NAME="main Coverage Results" MODIFIED="1792939547268" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Algorithem" />
   </component>
 </project>
