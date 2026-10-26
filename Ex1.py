@@ -3,6 +3,7 @@
 Usage:
     python Ex1.py <file.nrrd> <file.csv> <file.mp4> [--strict]
                   [--interp {nearest,trilinear}] [--window LO HI] [--fps N]
+                  [--workers N]
 
 Pipeline:
     file.csv  -> load_planes -> valid Plane3D list
@@ -12,14 +13,15 @@ Pipeline:
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
+import os
+from pathlib import Path
 import sys
 import time
-from pathlib import Path
 
 import nrrd
 import numpy as np
-
-from Algorithem.Plane3D  import InvalidPlaneError
+from Algorithem.Plane3D import InvalidPlaneError
 from Algorithem.Plane_loader import load_planes
 from Algorithem.sampler import slice_volume
 from Algorithem.video import Frame, Video
@@ -47,6 +49,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--window", nargs=2, type=float, metavar=("LO", "HI"),
                    help="intensity window for 16/32-bit data (default: global min/max)")
     p.add_argument("--fps", type=int, default=30, help="video frame rate (default: 30)")
+    p.add_argument("--workers", type=int, default=os.cpu_count() or 4,
+                   help="number of parallel projection threads (default: CPU count)")
     return p.parse_args(argv)
 
 
@@ -67,9 +71,16 @@ def load_volume(path: Path) -> np.ndarray:
     data, _header = nrrd.read(str(path))
     if data.ndim != 3:
         raise ValueError(f"expected a 3D volume, got {data.ndim}D array")
+    if data.dtype.kind == "i":
+        # Signed integers (e.g. int16 MRHead): shift so the minimum becomes 0,
+        # then store as the unsigned type of the same size. Relative intensities
+        # are preserved, which is all the projection and the 8-bit window need.
+        unsigned = np.dtype(f"uint{data.dtype.itemsize * 8}")
+        data = (data.astype(np.int64) - int(data.min())).astype(unsigned)
+        print(f"note: signed volume shifted to {unsigned}")
     if data.dtype.type not in SUPPORTED_DTYPES:
         raise ValueError(
-            f"unsupported voxel type {data.dtype}; expected uint8, uint16 or uint32"
+            f"unsupported voxel type {data.dtype}; expected an integer type"
         )
     return data
 
@@ -78,36 +89,50 @@ def load_volume(path: Path) -> np.ndarray:
 INTERP_ORDER = {"nearest": 0, "trilinear": 1}
 
 
-def window_bounds(volume: np.ndarray, window: tuple[float, float] | None):
-    """Return (lo, hi) used to map the volume to 8 bits, or None for uint8 data."""
+def get_window_params(volume: np.ndarray, window: tuple[float, float] | None) -> tuple[float, float] | None:
+    """Return precomputed (lo, scale) for fast 8-bit mapping, or None for uint8."""
     if window is not None:
         lo, hi = window
         if hi <= lo:
             raise ValueError("--window requires LO < HI")
-        return lo, hi
+        scale = 255.0 / (hi - lo)
+        return float(lo), scale
+
     if volume.dtype == np.uint8:
-        return None  # already 8 bit, keep values untouched
-    return float(volume.min()), float(volume.max())
+        return None
 
-
-def to_uint8(img: np.ndarray, bounds) -> np.ndarray:
-    """Linearly window an image to uint8 (identity for uint8 data)."""
-    if bounds is None:
-        return img
-    lo, hi = bounds
+    lo = float(volume.min())
+    hi = float(volume.max())
     scale = 255.0 / (hi - lo) if hi > lo else 0.0
-    out = (img.astype(np.float32) - lo) * scale
-    return np.clip(out, 0, 255).astype(np.uint8)
+    return lo, scale
 
 
-def pad_center(img: np.ndarray, rows: int, cols: int) -> np.ndarray:
-    """Centre `img` on a black (rows x cols) canvas; all video frames must match."""
-    h, w = img.shape
+def process_single_plane(plane, volume: np.ndarray, order: int,
+                         win_params: tuple[float, float] | None,
+                         rows: int, cols: int) -> np.ndarray:
+    """Worker task: slices, windows, and centres plane onto the canvas."""
+    img = slice_volume(plane, volume, order=order)
+
+    # Window to uint8
+    if win_params is not None:
+        lo, scale = win_params
+        # Fast in-place operations on float32 representation
+        out_f = (img.astype(np.float32) - lo) * scale
+        img_u8 = np.clip(out_f, 0, 255).astype(np.uint8)
+    elif img.dtype != np.uint8:
+        img_u8 = img.astype(np.uint8)
+    else:
+        img_u8 = img
+
+    # Fast canvas placement without intermediate copies
+    h, w = img_u8.shape
     if (h, w) == (rows, cols):
-        return img
-    canvas = np.zeros((rows, cols), dtype=img.dtype)
-    r0, c0 = (rows - h) // 2, (cols - w) // 2
-    canvas[r0:r0 + h, c0:c0 + w] = img
+        return img_u8
+
+    canvas = np.zeros((rows, cols), dtype=np.uint8)
+    r0 = (rows - h) // 2
+    c0 = (cols - w) // 2
+    canvas[r0:r0 + h, c0:c0 + w] = img_u8
     return canvas
 
 
@@ -155,20 +180,26 @@ def run(args: argparse.Namespace) -> int:
     # 3. Projection. All frames must share one size, so use the largest plane.
     rows = max(p.rows for p in planes)
     cols = max(p.cols for p in planes)
-    bounds = window_bounds(volume, tuple(args.window) if args.window else None)
+    win_params = get_window_params(volume, tuple(args.window) if args.window else None)
     order = INTERP_ORDER[args.interp]
     video = Video(fps=args.fps)
 
-    t_proj = 0.0
-    for plane in planes:
-        t0 = time.perf_counter()
-        image = slice_volume(plane, volume, order=order)
-        t_proj += time.perf_counter() - t0
-        frame_img = pad_center(to_uint8(image, bounds), rows, cols)
-        video.add_frame(frame_img)
+    print(f"projecting frames using {args.workers} worker threads...")
+    t_start = time.perf_counter()
 
-    avg_ms = 1000.0 * t_proj / len(planes)
-    print(f"projection: {avg_ms:.2f} ms/frame ({1000.0 / avg_ms:.0f} FPS)")
+    with ThreadPoolExecutor(max_workers=args.workers) as pool:
+        frames = list(pool.map(
+            lambda p: process_single_plane(p, volume, order, win_params, rows, cols),
+            planes
+        ))
+
+    total_proj_time = time.perf_counter() - t_start
+    avg_ms = (total_proj_time * 1000.0) / len(planes)
+    effective_fps = len(planes) / total_proj_time if total_proj_time > 0 else 0.0
+    print(f"projection: {avg_ms:.2f} ms/frame ({effective_fps:.1f} FPS)")
+
+    for frame in frames:
+        video.add_frame(frame)
 
     # 4. Export.
     args.mp4.parent.mkdir(parents=True, exist_ok=True)
