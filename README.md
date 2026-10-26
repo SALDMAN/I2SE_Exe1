@@ -80,10 +80,8 @@ Lines starting with `#` and blank lines are ignored.
 ### 3.1 Architecture
 
 ```
-Ex1.py                  # demo main (CLI)
+Ex1.py                  # demo main (CLI); loads the NRRD with pynrrd -> NumPy array
 projection/
-  volume.py             # Volume: wraps the 3D array, bounds, dtype
-  io_nrrd.py            # NRRD reader  -> Volume
   io_csv.py             # CSV reader   -> list[Plane]
   geometry.py           # Vec3 helpers, Plane (validation, basis vectors, sizes)
   projector.py          # Projector (interface) + PlaneProjector (algorithm)
@@ -95,10 +93,10 @@ data/                   # sample NRRD + CSV files
 
 Main classes:
 
-- `Volume`: immutable view over the 3D array (`shape`, `dtype`, `contains(x,y,z)`).
+- The volume is a plain NumPy 3D array (`M[x][y][z]`) loaded with the `pynrrd` library, so no custom volume or NRRD reader classes are needed. Shape and dtype come directly from the array.
 - `Plane`: built from 3 or 4 points; validates (FR3) and exposes `start_left`, `start_right`, `dir_left`, `dir_right`, `Dab`, `Dbc`.
-- `Sampler` (Strategy pattern): `sample(volume, points) -> values`. Allows swapping nearest and trilinear.
-- `Projector`: `project(volume, plane) -> ndarray` (the 2D image `E`). Reuses preallocated buffers.
+- `Sampler` (Strategy pattern): `sample(M, points) -> values` (`M` is the NumPy array). Allows swapping nearest and trilinear.
+- `Projector`: `project(M, plane) -> ndarray` (the 2D image `E`). Reuses preallocated buffers.
 - `VideoWriter`: Context manager that receives frames and writes the MP4.
 
 ---
@@ -225,3 +223,5 @@ Optional flags:
 - `projection/`: source code. `tests/`: tests. `data/`: sample inputs. `results/`: output videos.
 - Commit often with small, descriptive messages (e.g. `Add Plane validation`, `Vectorize projector`, `Add rotation demo`).
 
+## 10. Notes
+- The assignment text refers to the demo as `Ex0.py`; this project names it `Ex1.py`. Rename if your submission requires the other name.
